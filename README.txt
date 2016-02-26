@@ -1,4 +1,4 @@
-                               jsSID 0.9 ReadMe
+                               jsSID 0.9.1 ReadMe
  
 Intro:
   Hi Folks, this is Hermit with a new JavaScript SID emulator and player called jsSID. 
@@ -21,6 +21,7 @@ Usage:
  I also included a playlist-based 'player.html' example which you can use on your webpage to handle playback
  of a list of your SIDs with timeout and auto-advance feature. It needs a list of files in 'playlist.txt'.
  Playtime is taken from it if present, and must be given in 'mm:ss' format after the filename (minutes and seconds).
+ (Default subtune can be selected with an additional (optional) ':st' field, so the format after filename seems like: 'mm:ss:st'...)
   The source code 'source/jsSID.js' works directly, but for webpages I advise the stripped versions. The 'sources/Makefile' script
  generates them, and you can decide what degree of compression you need. (Variables shortened, newlines/spaces eliminated, etc.)
 
@@ -37,6 +38,7 @@ Features of jsSID that I think need to be mentioned:
  -Illegal opcodes are supported by the CPU emulation to a degree (most LAX and SAX instructions, needed e.g. by 1raster-tracker)
  -Interfacing through easy-to-use function calls (load/start/stop/etc.), playing a SID is as simple as playSID('URL',subtune);
  -Callbacks can be set for various events, e.g. when a SID with given length ends (this eases auto-advance playback)
+ -2nd and 3rd (2SID and 3SID) playback support
 
 Not supported:
  -Digi playback is totally left off from jsSID, it's targeted for authentic clean SID sound instead
@@ -53,5 +55,5 @@ Outro:
  I'd be grateful if my name/credits won't be removed from it, but otherwise feel free to use it as you wish.
 
 Mihaly Horvath (Hermit)
-February 2016, Hungary
+2016, Hungary
 http://hermit.sidrip.com

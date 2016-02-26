@@ -8,7 +8,7 @@ function playSID(sidurl,subtune) {
 
 function jsSID (bufferlen, background_noise)
 {
- this.author='Hermit'; this.sourcecode='http://hermit.sidrip.com'; this.version='0.9'; this.year='2016';
+ this.author='Hermit'; this.sourcecode='http://hermit.sidrip.com'; this.version='0.9.1'; this.year='2016';
  
  
  if ( typeof AudioContext !== 'undefined') { var jsSID_audioCtx = new AudioContext(); }
@@ -25,7 +25,7 @@ function jsSID (bufferlen, background_noise)
  
  
  
- this.loadstart = function(sidurl,subt) { this.loadinit(sidurl,subt); if (startcallback!==null) startcallback(); this.playcont(); this.playcont(); }
+ this.loadstart = function(sidurl,subt) { this.loadinit(sidurl,subt); if (startcallback!==null) startcallback(); this.playcont(); }
  this.loadinit = function(sidurl,subt) { loaded=0; this.pause(); initSID(); subtune=subt; 
   var request = new XMLHttpRequest(); request.open('GET',sidurl,true); request.responseType = 'arraybuffer';
   request.onload = function() { var filedata = new Uint8Array(request.response); 
@@ -36,19 +36,23 @@ function jsSID (bufferlen, background_noise)
    strend=1; for(i=0; i<32; i++) { if(strend!=0) strend=SIDauthor[i]=filedata[0x36+i]; else strend=SIDauthor[i]=0; } 
    strend=1; for(i=0; i<32; i++) { if(strend!=0) strend=SIDinfo[i]=filedata[0x56+i]; else strend=SIDinfo[i]=0; } 
    initaddr=filedata[0xA]+filedata[0xB]? filedata[0xA]*256+filedata[0xB] : loadaddr; playaddr=playaddf=filedata[0xC]*256+filedata[0xD]; 
-   subtune_amount=filedata[0xF]; preferred_SID_model = ((filedata[0x77]&0x30)>=0x20)? 8580 : 6581; 
+   subtune_amount=filedata[0xF]; preferred_SID_model[0] = (filedata[0x77]&0x30)>=0x20? 8580 : 6581; 
+   preferred_SID_model[1] = (filedata[0x77]&0xC0)>=0x80 ? 8580 : 6581; preferred_SID_model[2] = (filedata[0x76]&3)>=3 ? 8580 : 6581; 
+   SID_address[1] = filedata[0x7A]>=0x42 && (filedata[0x7A]<0x80 || filedata[0x7A]>=0xE0) ? 0xD000+filedata[0x7A]*16 : 0;
+   SID_address[2] = filedata[0x7B]>=0x42 && (filedata[0x7B]<0x80 || filedata[0x7B]>=0xE0) ? 0xD000+filedata[0x7B]*16 : 0;
+   SIDamount=1+(SID_address[1]>0)+(SID_address[2]>0);
    loaded=1;  if (loadcallback!==null) loadcallback();  init(subtune); };   
   request.send(null); 
  } 
  this.start = function(subt) { init(subt); if (startcallback!==null) startcallback(); this.playcont(); }
  this.playcont = function() { jsSID_scriptNode.connect(jsSID_audioCtx.destination); }
- this.pause = function() { jsSID_scriptNode.disconnect(jsSID_audioCtx.destination); }
+ this.pause = function() { if (loaded && initialized) jsSID_scriptNode.disconnect(jsSID_audioCtx.destination); }
  this.stop = function() { this.pause(); init(subtune); }
  this.gettitle = function() { return String.fromCharCode.apply(null,SIDtitle); }
  this.getauthor = function() { return String.fromCharCode.apply(null,SIDauthor); }
  this.getinfo = function() { return String.fromCharCode.apply(null,SIDinfo); }
  this.getsubtunes = function () { return subtune_amount; }
- this.getprefmodel = function() { return preferred_SID_model; }
+ this.getprefmodel = function() { return preferred_SID_model[0]; }
  this.getmodel = function() { return SID_model; }
  this.getoutput = function() { return (output/OUTPUT_SCALEDOWN)*(memory[0xD418]&0xF); }
  this.getplaytime = function() { return parseInt(playtime); } 
@@ -63,16 +67,18 @@ function jsSID (bufferlen, background_noise)
  PAL_FRAMERATE = 50, 
  SID_CHANNEL_AMOUNT = 3,
  OUTPUT_SCALEDOWN = 0x10000 * SID_CHANNEL_AMOUNT * 16;
+ var SIDamount_vol=[0,  1, 0.6, 0.4]; 
  
  
  var SIDtitle = new Uint8Array(0x20); var SIDauthor = new Uint8Array(0x20); var SIDinfo = new Uint8Array(0x20); var timermode = new Uint8Array(0x20);
  var loadaddr=0x1000, initaddr=0x1000, playaddf=0x1003, playaddr=0x1003, subtune = 0, subtune_amount=1, playlength=0; 
- var preferred_SID_model=8580; var SID_model=8580.0; 
+ var preferred_SID_model=[8580.0,8580.0,8580.0]; var SID_model=8580.0; var SID_address=[0xD400,0,0];
  var memory = new Uint8Array(65536); 
  var loaded=0, initialized=0, finished=0, loadcallback=null, startcallback=null; endcallback=null, playtime=0, ended=0;
  var clk_ratio = C64_PAL_CPUCLK/samplerate;
  var frame_sampleperiod = samplerate/PAL_FRAMERATE; 
  var framecnt=1, volume=1.0, CPUtime=0, pPC;
+ var SIDamount=1, mix=0;
  
  function init(subt) { 
   if (loaded) { initialized=0; subtune = subt; initCPU(initaddr); initSID(); A=subtune; memory[1]=0x37; memory[0xDC05]=0;
@@ -94,12 +100,15 @@ function jsSID (bufferlen, background_noise)
      if (CPU()>=0xFE) { finished=1; break; }  else CPUtime+=cycles;
      if ( (memory[1]&3)>1 && pPC<0xE000 && (PC==0xEA31 || PC==0xEA81)) { finished=1; break; } 
      if ( (addr==0xDC05 || addr==0xDC04) && (memory[1]&3) && timermode[subtune] ) frame_sampleperiod = (memory[0xDC04] + memory[0xDC05]*256) / clk_ratio; 
-     if(storadd>=0xD420 && storadd<0xD800 && (memory[1]&3)) memory[storadd&0xD41F]=memory[storadd]; 
+     if(storadd>=0xD420 && storadd<0xD800 && (memory[1]&3)) {  
+      if ( !(SID_address[1]<=storadd && storadd<SID_address[1]+0x1F) && !(SID_address[2]<=storadd && storadd<SID_address[2]+0x1F) )
+       memory[storadd&0xD41F]=memory[storadd]; }
      if(addr==0xD404 && !(memory[0xD404]&1)) ADSRstate[0]&=0x3E; if(addr==0xD40B && !(memory[0xD40B]&1)) ADSRstate[1]&=0x3E; if(addr==0xD412 && !(memory[0xD412]&1)) ADSRstate[2]&=0x3E; 
     }  CPUtime-=clk_ratio;
   }} 
   if (playlength>0 && parseInt(playtime)==parseInt(playlength) && endcallback!==null && ended==0) {ended=1; endcallback();}
-  return SID(); 
+  mix = SID(0,0xD400); if (SID_address[1]) mix += SID(1,SID_address[1]); if(SID_address[2]) mix += SID(2,SID_address[2]);
+  return mix * volume * SIDamount_vol[SIDamount] + (Math.random()*background_noise-background_noise/2); 
  }
  
  
@@ -190,22 +199,24 @@ function jsSID (bufferlen, background_noise)
  var 
  GATE_BITMASK=0x01, SYNC_BITMASK=0x02, RING_BITMASK=0x04, TEST_BITMASK=0x08, TRI_BITMASK=0x10, SAW_BITMASK=0x20, PULSE_BITMASK=0x40, NOISE_BITMASK=0x80,
  HOLDZERO_BITMASK=0x10, DECAYSUSTAIN_BITMASK=0x40, ATTACK_BITMASK=0x80, 
- FILTSW = [1,2,4], LOWPASS_BITMASK=0x10, BANDPASS_BITMASK=0x20, HIGHPASS_BITMASK=0x40, OFF3_BITMASK=0x80;
- var ADSRstate = [0,0,0], ratecnt = [0,0,0], envcnt = [0,0,0], expcnt = [0,0,0], prevSR = [0,0,0];
- var phaseaccu = [0,0,0], prevaccu = [0,0,0], sourceMSBrise=0, sourceMSB=0; 
- var noise_LFSR = [0x7FFFF8,0x7FFFF8,0x7FFFF8], prevwfout = [0,0,0], prevwavdata = [0,0,0], combiwf;
- var prevlowpass=0, prevbandpass=0, cutoff_ratio_8580 = -2*3.14*(12500/256)/samplerate, cutoff_ratio_6581 = -2*3.14*(20000/256)/samplerate;
+ FILTSW = [1,2,4,1,2,4,1,2,4], LOWPASS_BITMASK=0x10, BANDPASS_BITMASK=0x20, HIGHPASS_BITMASK=0x40, OFF3_BITMASK=0x80;
+ var ADSRstate = [0,0,0,0,0,0,0,0,0], ratecnt = [0,0,0,0,0,0,0,0,0], envcnt = [0,0,0,0,0,0,0,0,0], expcnt = [0,0,0,0,0,0,0,0,0], prevSR = [0,0,0,0,0,0,0,0,0];
+ var phaseaccu = [0,0,0,0,0,0,0,0,0], prevaccu = [0,0,0,0,0,0,0,0,0], sourceMSBrise=[0,0,0], sourceMSB=[0,0,0]; 
+ var noise_LFSR = [0x7FFFF8,0x7FFFF8,0x7FFFF8,0x7FFFF8,0x7FFFF8,0x7FFFF8,0x7FFFF8,0x7FFFF8,0x7FFFF8];
+ var prevwfout = [0,0,0,0,0,0,0,0,0], prevwavdata = [0,0,0,0,0,0,0,0,0], combiwf;
+ var prevlowpass=[0,0,0], prevbandpass=[0,0,0], cutoff_ratio_8580 = -2*3.14*(12500/256)/samplerate, cutoff_ratio_6581 = -2*3.14*(20000/256)/samplerate;
  var prevgate, chnadd, ctrl, wf, test, period, step, SR, accuadd, MSB, tmp, pw, lim, wfout, cutoff, resonance, filtin, output;
  
  
- function initSID() { for(var i=0xD400;i<=0xD41F;i++) memory[i]=0; for(var i=0;i<3;i++) {ADSRstate[i]=HOLDZERO_BITMASK; ratecnt[i]=envcnt[i]=expcnt[i]=prevSR[i]=0;} }
+ function initSID() { for(var i=0xD400;i<=0xD7FF;i++) memory[i]=0; for(var i=0xDE00;i<=0xDFFF;i++) memory[i]=0;
+  for(var i=0;i<9;i++) {ADSRstate[i]=HOLDZERO_BITMASK; ratecnt[i]=envcnt[i]=expcnt[i]=prevSR[i]=0;} }
  
- function SID () 
+ function SID (num,SIDaddr) 
  {  
   filtin=0; output=0;
-  for (var channel=0; channel<SID_CHANNEL_AMOUNT; channel++) 
+  for (var channel = num*SID_CHANNEL_AMOUNT;  channel < (num+1)*SID_CHANNEL_AMOUNT;  channel++) 
   {
-   prevgate=(ADSRstate[channel]&GATE_BITMASK); chnadd=0xD400+channel*7, ctrl=memory[chnadd+4]; wf=ctrl&0xF0; test=ctrl&TEST_BITMASK; SR=memory[chnadd+6]; tmp=0;
+   prevgate=(ADSRstate[channel]&GATE_BITMASK); chnadd=SIDaddr+(channel-num*SID_CHANNEL_AMOUNT)*7, ctrl=memory[chnadd+4]; wf=ctrl&0xF0; test=ctrl&TEST_BITMASK; SR=memory[chnadd+6]; tmp=0;
    
    if ( prevgate != (ctrl&GATE_BITMASK) ) { 
     if (prevgate) { ADSRstate[channel] &= 0xFF-(GATE_BITMASK|ATTACK_BITMASK|DECAYSUSTAIN_BITMASK); } 
@@ -226,9 +237,9 @@ function jsSID (bufferlen, background_noise)
    envcnt[channel]&=0xFF; 
    
    accuadd=(memory[chnadd]+memory[chnadd+1]*256)*clk_ratio; 
-   if (  test  ||  ( (ctrl&SYNC_BITMASK) && sourceMSBrise )  ) { phaseaccu[channel]=0; }
+   if (  test  ||  ( (ctrl&SYNC_BITMASK) && sourceMSBrise[num] )  ) { phaseaccu[channel]=0; }
    else { phaseaccu[channel] += accuadd; if (phaseaccu[channel]>0xFFFFFF) phaseaccu[channel] -= 0x1000000; } 
-   MSB = phaseaccu[channel]&0x800000; sourceMSBrise = ( MSB > (prevaccu[channel]&0x800000))?1:0; 
+   MSB = phaseaccu[channel]&0x800000; sourceMSBrise[num] = ( MSB > (prevaccu[channel]&0x800000))?1:0; 
    if (wf&NOISE_BITMASK) { tmp=noise_LFSR[channel];
     if (((phaseaccu[channel]&0x100000) != (prevaccu[channel]&0x100000)) || accuadd>=0x100000) { 
      step=(tmp&0x400000)^((tmp&0x20000)<<5) ; tmp = ((tmp<<1)+(step>0||test)) & 0x7FFFFF; noise_LFSR[channel]=tmp; }   
@@ -243,26 +254,26 @@ function jsSID (bufferlen, background_noise)
      wfout = (tmp >= pw || test) ? 0xFFFF:0; 
      if (wf&TRI_BITMASK) { 
       if (wf&SAW_BITMASK) { wfout = (wfout)? combinedWF(channel,PulseTriSaw_8580,tmp>>4,1) : 0; } 
-      else { tmp=phaseaccu[channel]^(ctrl&RING_BITMASK?sourceMSB:0); wfout = (wfout)? combinedWF(channel,PulseSaw_8580,(tmp^(tmp&0x800000?0xFFFFFF:0))>>11,0) : 0; } } 
+      else { tmp=phaseaccu[channel]^(ctrl&RING_BITMASK?sourceMSB[num]:0); wfout = (wfout)? combinedWF(channel,PulseSaw_8580,(tmp^(tmp&0x800000?0xFFFFFF:0))>>11,0) : 0; } } 
      else if (wf&SAW_BITMASK) wfout = (wfout)? combinedWF(channel,PulseSaw_8580,tmp>>4,1) : 0;  }  } 
    else if (wf&SAW_BITMASK) { wfout=phaseaccu[channel]>>8; 
     if (wf&TRI_BITMASK) wfout = combinedWF(channel,TriSaw_8580,wfout>>4,1); 
     else { step=accuadd/0x1200000; wfout += wfout*step; if (wfout>0xFFFF) wfout = 0xFFFF-(wfout-0x10000)/step; }  } 
-   else if (wf&TRI_BITMASK) { tmp=phaseaccu[channel]^(ctrl&RING_BITMASK?sourceMSB:0); wfout = (tmp^(tmp&0x800000?0xFFFFFF:0)) >> 7; }
+   else if (wf&TRI_BITMASK) { tmp=phaseaccu[channel]^(ctrl&RING_BITMASK?sourceMSB[num]:0); wfout = (tmp^(tmp&0x800000?0xFFFFFF:0)) >> 7; }
    if (wf) prevwfout[channel] = wfout; else { wfout = prevwfout[channel]; } 
-   prevaccu[channel] = phaseaccu[channel]; sourceMSB = MSB;
-   if (memory[0xD417]&FILTSW[channel]) filtin += (wfout-0x8000)*(envcnt[channel]/256); 
-   else if (channel!=2 || !(memory[0xD418]&OFF3_BITMASK)) output += (wfout-0x8000)*(envcnt[channel]/256);  
+   prevaccu[channel] = phaseaccu[channel]; sourceMSB[num] = MSB;
+   if (memory[SIDaddr+0x17]&FILTSW[channel]) filtin += (wfout-0x8000)*(envcnt[channel]/256); 
+   else if ((channel%SID_CHANNEL_AMOUNT)!=2 || !(memory[SIDaddr+0x18]&OFF3_BITMASK)) output += (wfout-0x8000)*(envcnt[channel]/256);  
   }
-  if(memory[1]&3) memory[0xD41B]=wfout>>8; memory[0xD41C]=envcnt[3]; 
+  if(memory[1]&3) memory[SIDaddr+0x1B]=wfout>>8; memory[SIDaddr+0x1C]=envcnt[3]; 
   
-  cutoff = (memory[0xD415]&7)/8 + memory[0xD416] + 0.2; 
-  if (SID_model==8580.0) { cutoff = 1-Math.exp(cutoff*cutoff_ratio_8580); resonance = Math.pow( 2, ( (4-(memory[0xD417]>>4) ) / 8) ); }
-  else { if (cutoff<24) cutoff=0.035; else cutoff = 1-1.263*Math.exp(cutoff*cutoff_ratio_6581); resonance = (memory[0xD417]>0x5F)? 8/(memory[0xD417]>>4) : 1.41; }
-  tmp = filtin + prevbandpass*resonance + prevlowpass; if (memory[0xD418]&HIGHPASS_BITMASK) output-=tmp;
-  tmp = prevbandpass - tmp*cutoff; prevbandpass=tmp;  if (memory[0xD418]&BANDPASS_BITMASK) output-=tmp;
-  tmp = prevlowpass + tmp*cutoff; prevlowpass=tmp;  if (memory[0xD418]&LOWPASS_BITMASK) output+=tmp;   
-  return (output/OUTPUT_SCALEDOWN)*(memory[0xD418]&0xF)*volume + (Math.random()*background_noise-background_noise/2); 
+  cutoff = (memory[SIDaddr+0x15]&7)/8 + memory[SIDaddr+0x16] + 0.2; 
+  if (SID_model==8580.0) { cutoff = 1-Math.exp(cutoff*cutoff_ratio_8580); resonance = Math.pow( 2, ( (4-(memory[SIDaddr+0x17]>>4) ) / 8) ); }
+  else { if (cutoff<24) cutoff=0.035; else cutoff = 1-1.263*Math.exp(cutoff*cutoff_ratio_6581); resonance = (memory[SIDaddr+0x17]>0x5F)? 8/(memory[SIDaddr+0x17]>>4) : 1.41; }
+  tmp = filtin + prevbandpass[num]*resonance + prevlowpass[num]; if (memory[SIDaddr+0x18]&HIGHPASS_BITMASK) output-=tmp;
+  tmp = prevbandpass[num] - tmp*cutoff; prevbandpass[num]=tmp;  if (memory[SIDaddr+0x18]&BANDPASS_BITMASK) output-=tmp;
+  tmp = prevlowpass[num] + tmp*cutoff; prevlowpass[num]=tmp;  if (memory[SIDaddr+0x18]&LOWPASS_BITMASK) output+=tmp;   
+  return (output/OUTPUT_SCALEDOWN)*(memory[SIDaddr+0x18]&0xF); 
  }
 
  function combinedWF(channel,wfarray,index,differ6581) 
