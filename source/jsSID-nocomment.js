@@ -28,9 +28,12 @@ function jsSID (bufferlen, background_noise)
  
  
  this.loadstart = function(sidurl,subt) { this.loadinit(sidurl,subt); if (startcallback!==null) startcallback(); this.playcont(); }
+
  this.loadinit = function(sidurl,subt) { loaded=0; this.pause(); initSID(); subtune=subt; 
   var request = new XMLHttpRequest(); request.open('GET',sidurl,true); request.responseType = 'arraybuffer';
-  request.onload = function() { var filedata = new Uint8Array(request.response); 
+
+  request.onload = function() {  
+   var filedata = new Uint8Array(request.response); 
    var i,strend, offs=filedata[7]; loadaddr=filedata[8]+filedata[9]? filedata[8]*256+filedata[9] : filedata[offs]+filedata[offs+1]*256;
    for (i=0; i<32; i++) timermode[31-i] = filedata[0x12+(i>>3)] & Math.pow(2,7-i%8); for(i=0;i<memory.length;i++) memory[i]=0;
    for (i=offs+2; i<filedata.byteLength; i++) { if (loadaddr+i-(offs+2)<memory.length) memory[loadaddr+i-(offs+2)]=filedata[i]; } 
@@ -43,13 +46,19 @@ function jsSID (bufferlen, background_noise)
    SID_address[1] = filedata[0x7A]>=0x42 && (filedata[0x7A]<0x80 || filedata[0x7A]>=0xE0) ? 0xD000+filedata[0x7A]*16 : 0;
    SID_address[2] = filedata[0x7B]>=0x42 && (filedata[0x7B]<0x80 || filedata[0x7B]>=0xE0) ? 0xD000+filedata[0x7B]*16 : 0;
    SIDamount=1+(SID_address[1]>0)+(SID_address[2]>0);
-   loaded=1;  if (loadcallback!==null) loadcallback();  init(subtune); };   
+   loaded=1;  if (loadcallback!==null) loadcallback();  init(subtune); 
+  };   
+
   request.send(null); 
  } 
+
  this.start = function(subt) { init(subt); if (startcallback!==null) startcallback(); this.playcont(); }
  this.playcont = function() { jsSID_scriptNode.connect(jsSID_audioCtx.destination); }
- this.pause = function() { if (loaded && initialized) jsSID_scriptNode.disconnect(jsSID_audioCtx.destination); }
+ this.pause = function() { if (loaded && initialized) jsSID_scriptNode.disconnect(jsSID_audioCtx.destination); } 
+ 
+ 
  this.stop = function() { this.pause(); init(subtune); }
+ 
  this.gettitle = function() { return String.fromCharCode.apply(null,SIDtitle); }
  this.getauthor = function() { return String.fromCharCode.apply(null,SIDauthor); }
  this.getinfo = function() { return String.fromCharCode.apply(null,SIDinfo); }
@@ -123,10 +132,18 @@ function jsSID (bufferlen, background_noise)
  var 
  flagsw=[0x01,0x21,0x04,0x24,0x00,0x40,0x08,0x28], branchflag=[0x80,0x40,0x01,0x02];
  var PC=0, A=0, T=0, X=0, Y=0, SP=0xFF, IR=0, addr=0, ST=0x00, cycles=0, storadd=0; 
+
  function initCPU (mempos) { PC=mempos; A=0; X=0; Y=0; ST=0; SP=0xFF; } 
+
+
+ 
+ 
+ 
+ 
+ 
  
  function CPU () 
- {
+ { 
   IR=memory[PC]; cycles=2; storadd=0; 
   
   if(IR&1) {  
@@ -223,6 +240,13 @@ function jsSID (bufferlen, background_noise)
   PC++; PC&=0xFFFF; return 0; 
  } 
  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
   
  var 
  GATE_BITMASK=0x01, SYNC_BITMASK=0x02, RING_BITMASK=0x04, TEST_BITMASK=0x08, TRI_BITMASK=0x10, SAW_BITMASK=0x20, PULSE_BITMASK=0x40, NOISE_BITMASK=0x80,
@@ -245,7 +269,8 @@ function jsSID (bufferlen, background_noise)
  function SID (num,SIDaddr) 
  {  
   filtin=0; output=0;
-   
+ 
+  
   for (var channel = num*SID_CHANNEL_AMOUNT;  channel < (num+1)*SID_CHANNEL_AMOUNT;  channel++) 
   {
    prevgate=(ADSRstate[channel]&GATE_BITMASK); chnadd=SIDaddr+(channel-num*SID_CHANNEL_AMOUNT)*7; 
@@ -256,11 +281,12 @@ function jsSID (bufferlen, background_noise)
     if (prevgate) { ADSRstate[channel] &= 0xFF-(GATE_BITMASK|ATTACK_BITMASK|DECAYSUSTAIN_BITMASK); } 
     else { ADSRstate[channel] = (GATE_BITMASK|ATTACK_BITMASK|DECAYSUSTAIN_BITMASK); 
      if ( (SR&0xF) > (prevSR[channel]&0xF) ) tmp=1; 
-    } 
+    }                                               
    }  
-   prevSR[channel]=SR; 
+   prevSR[channel]=SR;
    
    ratecnt[channel] += clk_ratio; if (ratecnt[channel] >= 0x8000) ratecnt[channel] -= 0x8000; 
+  
    
    if (ADSRstate[channel]&ATTACK_BITMASK) { step = memory[chnadd+5]>>4; period = ADSRperiods[step]; }
    else if (ADSRstate[channel]&DECAYSUSTAIN_BITMASK) { step = memory[chnadd+5]&0xF; period = ADSRperiods[step]; }
@@ -287,14 +313,27 @@ function jsSID (bufferlen, background_noise)
    else { phaseaccu[channel] += accuadd; if (phaseaccu[channel]>0xFFFFFF) phaseaccu[channel] -= 0x1000000; } 
    MSB = phaseaccu[channel]&0x800000; sourceMSBrise[num] = ( MSB > (prevaccu[channel]&0x800000))?1:0; 
    
-   if (wf&NOISE_BITMASK) { tmp=noise_LFSR[channel];
+   
+   if (wf&NOISE_BITMASK) { 
+	tmp=noise_LFSR[channel];
     if (((phaseaccu[channel]&0x100000) != (prevaccu[channel]&0x100000)) || accuadd>=0x100000) { 
-     step=(tmp&0x400000)^((tmp&0x20000)<<5) ; tmp = ((tmp<<1)+(step>0||test)) & 0x7FFFFF; noise_LFSR[channel]=tmp; }   
+     step=(tmp&0x400000)^((tmp&0x20000)<<5) ; tmp = ((tmp<<1)+(step>0||test)) & 0x7FFFFF; noise_LFSR[channel]=tmp; }
+    
     wfout = (wf&0x70)?0: ((tmp&0x100000)>>5)+((tmp&0x40000)>>4)+((tmp&0x4000)>>1)+((tmp&0x800)<<1)+((tmp&0x200)<<2)+((tmp&0x20)<<5)+((tmp&0x04)<<7)+((tmp&0x01)<<8); 
    }
    else if (wf&PULSE_BITMASK) { 
-    pw=(memory[chnadd+2]+(memory[chnadd+3]&0xF)*256)*16; tmp=accuadd>>9; if (0<pw && pw<tmp) pw=tmp; tmp^=0xFFFF; if(pw>tmp) pw=tmp; tmp=phaseaccu[channel]>>8;
+    pw=(memory[chnadd+2]+(memory[chnadd+3]&0xF)*256)*16; tmp=accuadd>>9; if (0<pw && pw<tmp) pw=tmp; tmp^=0xFFFF; if(pw>tmp) pw=tmp; 
+    tmp=phaseaccu[channel]>>8;
     if (wf==PULSE_BITMASK) { step=256/(accuadd>>16); 
+     
+     
+     
+     
+     
+     
+     
+     
+     
      if (test) wfout=0xFFFF;
      else if (tmp < pw) { lim = (0xFFFF-pw)*step; if (lim>0xFFFF) lim=0xFFFF; wfout = lim - (pw-tmp)*step; if (wfout<0) wfout=0; } 
      else { lim = pw*step; if (lim>0xFFFF) lim=0xFFFF; wfout = (0xFFFF-tmp)*step - lim; if (wfout>=0) wfout=0xFFFF; wfout&=0xFFFF; }  
@@ -307,20 +346,33 @@ function jsSID (bufferlen, background_noise)
      else if (wf&SAW_BITMASK) wfout = (wfout)? combinedWF(channel,PulseSaw_8580,tmp>>4,1) : 0; 
     }
    }
-   else if (wf&SAW_BITMASK) { wfout=phaseaccu[channel]>>8; 
+   else if (wf&SAW_BITMASK) { 
+	wfout=phaseaccu[channel]>>8; 
+    
+    
+    
+    
+    
+    
     if (wf&TRI_BITMASK) wfout = combinedWF(channel,TriSaw_8580,wfout>>4,1); 
     else { step=accuadd/0x1200000; wfout += wfout*step; if (wfout>0xFFFF) wfout = 0xFFFF-(wfout-0x10000)/step; }  
    }
-   else if (wf&TRI_BITMASK) { tmp=phaseaccu[channel]^(ctrl&RING_BITMASK?sourceMSB[num]:0); wfout = (tmp^(tmp&0x800000?0xFFFFFF:0)) >> 7; }
+   else if (wf&TRI_BITMASK) { 
+	tmp=phaseaccu[channel]^(ctrl&RING_BITMASK?sourceMSB[num]:0); wfout = (tmp^(tmp&0x800000?0xFFFFFF:0)) >> 7; 
+   }
 
    if (wf) prevwfout[channel] = wfout; else { wfout = prevwfout[channel]; } 
-   prevaccu[channel] = phaseaccu[channel]; sourceMSB[num] = MSB;
+   prevaccu[channel] = phaseaccu[channel]; sourceMSB[num] = MSB;            
 
+   
    if (memory[SIDaddr+0x17]&FILTSW[channel]) filtin += (wfout-0x8000)*(envcnt[channel]/256); 
    else if ((channel%SID_CHANNEL_AMOUNT)!=2 || !(memory[SIDaddr+0x18]&OFF3_BITMASK)) output += (wfout-0x8000)*(envcnt[channel]/256);  
   }
+
   
   if(memory[1]&3) memory[SIDaddr+0x1B]=wfout>>8; memory[SIDaddr+0x1C]=envcnt[3]; 
+  
+  
   
   
   cutoff = (memory[SIDaddr+0x15]&7)/8 + memory[SIDaddr+0x16] + 0.2; 
@@ -330,9 +382,53 @@ function jsSID (bufferlen, background_noise)
   tmp = prevbandpass[num] - tmp*cutoff; prevbandpass[num]=tmp;  if (memory[SIDaddr+0x18]&BANDPASS_BITMASK) output-=tmp;
   tmp = prevlowpass[num] + tmp*cutoff; prevlowpass[num]=tmp;  if (memory[SIDaddr+0x18]&LOWPASS_BITMASK) output+=tmp;   
   
+  
+  
+  
+  
   return (output/OUTPUT_SCALEDOWN)*(memory[SIDaddr+0x18]&0xF); 
  }
 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
 
  function combinedWF(channel,wfarray,index,differ6581) { 
   if(differ6581 && SID_model==6581.0) index&=0x7FF; combiwf = (wfarray[index]+prevwavdata[channel])/2; prevwavdata[channel]=wfarray[index]; return combiwf; 
@@ -354,6 +450,7 @@ function jsSID (bufferlen, background_noise)
  var ADSRperiods = [period0,32*1,63*1,95*1,149*1,220*1,267*1,313*1,392*1,977*1,1954*1,3126*1,3907*1,11720*1,19532*1,31251*1];
  var ADSRstep = [Math.ceil(period0/9),1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
 
+ 
  var ADSR_exptable = [ 1,30,30,30,30,30,30,16,16,16,16,16,16,16,16,8,8,8,8,8,8,8,8,8,8,8,8,4,4,4,4,4, 
   4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1, 
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,

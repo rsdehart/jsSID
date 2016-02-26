@@ -24,9 +24,12 @@ function jsSID (bufln, bgnoi)
  
  
  this.loadstart = function(sidurl,subt) { this.loadinit(sidurl,subt); if (startcallback!==null) startcallback(); this.playcont(); }
+
  this.loadinit = function(sidurl,subt) { ldd=0; this.pause(); initSID(); subtune=subt; 
   var req = new XMLHttpRequest(); req.open('GET',sidurl,true); req.responseType = 'arraybuffer';
-  req.onload = function() { var fdat = new Uint8Array(req.response); 
+
+  req.onload = function() {  
+   var fdat = new Uint8Array(req.response); 
    var i,strend, offs=fdat[7]; ldad=fdat[8]+fdat[9]? fdat[8]*256+fdat[9] : fdat[offs]+fdat[offs+1]*256;
    for (i=0; i<32; i++) tmod[31-i] = fdat[0x12+(i>>3)] & Math.pow(2,7-i%8); for(i=0;i<M.length;i++) M[i]=0;
    for (i=offs+2; i<fdat.byteLength; i++) { if (ldad+i-(offs+2)<M.length) M[ldad+i-(offs+2)]=fdat[i]; } 
@@ -39,12 +42,15 @@ function jsSID (bufln, bgnoi)
    SID_address[1] = fdat[0x7A]>=0x42 && (fdat[0x7A]<0x80 || fdat[0x7A]>=0xE0) ? 0xD000+fdat[0x7A]*16 : 0;
    SID_address[2] = fdat[0x7B]>=0x42 && (fdat[0x7B]<0x80 || fdat[0x7B]>=0xE0) ? 0xD000+fdat[0x7B]*16 : 0;
    SIDamount=1+(SID_address[1]>0)+(SID_address[2]>0);
-   ldd=1;  if (loadcallback!==null) loadcallback();  init(subtune); };   
+   ldd=1;  if (loadcallback!==null) loadcallback();  init(subtune); 
+  };   
+
   req.send(null); 
  } 
+
  this.start = function(subt) { init(subt); if (startcallback!==null) startcallback(); this.playcont(); }
  this.playcont = function() { scrNod.connect(aCtx.destination); }
- this.pause = function() { if (ldd && ind) scrNod.disconnect(aCtx.destination); }
+ this.pause = function() { if (ldd && ind) scrNod.disconnect(aCtx.destination); } 
  this.stop = function() { this.pause(); init(subtune); }
  this.gettitle = function() { return String.fromCharCode.apply(null,tit); }
  this.getauthor = function() { return String.fromCharCode.apply(null,auth); }
@@ -117,10 +123,13 @@ function jsSID (bufln, bgnoi)
  var 
  flagsw=[0x01,0x21,0x04,0x24,0x00,0x40,0x08,0x28], brf=[0x80,0x40,0x01,0x02];
  var PC=0, A=0, T=0, X=0, Y=0, SP=0xFF, IR=0, addr=0, ST=0x00, cyc=0, sta=0; 
+
  function initCPU (mempos) { PC=mempos; A=0; X=0; Y=0; ST=0; SP=0xFF; } 
+
+
  
  function CPU () 
- {
+ { 
   IR=M[PC]; cyc=2; sta=0; 
   
   if(IR&1) {  
@@ -217,6 +226,7 @@ function jsSID (bufln, bgnoi)
   PC++; PC&=0xFFFF; return 0; 
  } 
  
+ 
   
  var 
  GAT=0x01, SYN=0x02, RNG=0x04, TST=0x08, TRI=0x10, SAW=0x20, PUL=0x40, NOI=0x80,
@@ -237,7 +247,7 @@ function jsSID (bufln, bgnoi)
  function SID (num,SIDaddr) 
  {  
   flin=0; output=0;
-   
+ 
   for (var chn = num*CHA;  chn < (num+1)*CHA;  chn++) 
   {
    pgt=(Ast[chn]&GAT); chnadd=SIDaddr+(chn-num*CHA)*7; 
@@ -247,12 +257,12 @@ function jsSID (bufln, bgnoi)
     if (pgt) { Ast[chn] &= 0xFF-(GAT|ATK|DECSUS); } 
     else { Ast[chn] = (GAT|ATK|DECSUS); 
      if ( (SR&0xF) > (pSR[chn]&0xF) ) tmp=1; 
-    } 
+    }                                               
    }  
-   pSR[chn]=SR; 
+   pSR[chn]=SR;
    
    rcnt[chn] += ckr; if (rcnt[chn] >= 0x8000) rcnt[chn] -= 0x8000; 
-   
+  
    if (Ast[chn]&ATK) { step = M[chnadd+5]>>4; prd = Aprd[step]; }
    else if (Ast[chn]&DECSUS) { step = M[chnadd+5]&0xF; prd = Aprd[step]; }
    else { step = SR&0xF; prd = Aprd[step]; }     
@@ -277,13 +287,15 @@ function jsSID (bufln, bgnoi)
    else { pacc[chn] += aAdd; if (pacc[chn]>0xFFFFFF) pacc[chn] -= 0x1000000; } 
    MSB = pacc[chn]&0x800000; sMSBrise[num] = ( MSB > (pracc[chn]&0x800000))?1:0; 
    
-   if (wf&NOI) { tmp=nLFSR[chn];
+   if (wf&NOI) { 
+	tmp=nLFSR[chn];
     if (((pacc[chn]&0x100000) != (pracc[chn]&0x100000)) || aAdd>=0x100000) { 
-     step=(tmp&0x400000)^((tmp&0x20000)<<5) ; tmp = ((tmp<<1)+(step>0||test)) & 0x7FFFFF; nLFSR[chn]=tmp; }   
+     step=(tmp&0x400000)^((tmp&0x20000)<<5) ; tmp = ((tmp<<1)+(step>0||test)) & 0x7FFFFF; nLFSR[chn]=tmp; }
     wfout = (wf&0x70)?0: ((tmp&0x100000)>>5)+((tmp&0x40000)>>4)+((tmp&0x4000)>>1)+((tmp&0x800)<<1)+((tmp&0x200)<<2)+((tmp&0x20)<<5)+((tmp&0x04)<<7)+((tmp&0x01)<<8); 
    }
    else if (wf&PUL) { 
-    pw=(M[chnadd+2]+(M[chnadd+3]&0xF)*256)*16; tmp=aAdd>>9; if (0<pw && pw<tmp) pw=tmp; tmp^=0xFFFF; if(pw>tmp) pw=tmp; tmp=pacc[chn]>>8;
+    pw=(M[chnadd+2]+(M[chnadd+3]&0xF)*256)*16; tmp=aAdd>>9; if (0<pw && pw<tmp) pw=tmp; tmp^=0xFFFF; if(pw>tmp) pw=tmp; 
+    tmp=pacc[chn]>>8;
     if (wf==PUL) { step=256/(aAdd>>16); 
      if (test) wfout=0xFFFF;
      else if (tmp < pw) { lim = (0xFFFF-pw)*step; if (lim>0xFFFF) lim=0xFFFF; wfout = lim - (pw-tmp)*step; if (wfout<0) wfout=0; } 
@@ -297,19 +309,22 @@ function jsSID (bufln, bgnoi)
      else if (wf&SAW) wfout = (wfout)? cmbWF(chn,pusaw,tmp>>4,1) : 0; 
     }
    }
-   else if (wf&SAW) { wfout=pacc[chn]>>8; 
+   else if (wf&SAW) { 
+	wfout=pacc[chn]>>8; 
     if (wf&TRI) wfout = cmbWF(chn,trsaw,wfout>>4,1); 
     else { step=aAdd/0x1200000; wfout += wfout*step; if (wfout>0xFFFF) wfout = 0xFFFF-(wfout-0x10000)/step; }  
    }
-   else if (wf&TRI) { tmp=pacc[chn]^(ctrl&RNG?sMSB[num]:0); wfout = (tmp^(tmp&0x800000?0xFFFFFF:0)) >> 7; }
+   else if (wf&TRI) { 
+	tmp=pacc[chn]^(ctrl&RNG?sMSB[num]:0); wfout = (tmp^(tmp&0x800000?0xFFFFFF:0)) >> 7; 
+   }
 
    if (wf) prevwfout[chn] = wfout; else { wfout = prevwfout[chn]; } 
-   pracc[chn] = pacc[chn]; sMSB[num] = MSB;
+   pracc[chn] = pacc[chn]; sMSB[num] = MSB;            
 
    if (M[SIDaddr+0x17]&FSW[chn]) flin += (wfout-0x8000)*(envcnt[chn]/256); 
    else if ((chn%CHA)!=2 || !(M[SIDaddr+0x18]&OFF3)) output += (wfout-0x8000)*(envcnt[chn]/256);  
   }
-  
+
   if(M[1]&3) M[SIDaddr+0x1B]=wfout>>8; M[SIDaddr+0x1C]=envcnt[3]; 
   
   ctf = (M[SIDaddr+0x15]&7)/8 + M[SIDaddr+0x16] + 0.2; 
@@ -321,6 +336,7 @@ function jsSID (bufln, bgnoi)
   
   return (output/SCALE)*(M[SIDaddr+0x18]&0xF); 
  }
+
 
 
  function cmbWF(chn,wfa,index,differ6581) { 
