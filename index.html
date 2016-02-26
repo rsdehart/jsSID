@@ -4,13 +4,13 @@
  <script type="text/javascript" src="source/jsSID.js"></script>
  <script type="text/javascript">
   //simple example:
-   playSID('music/Fun_Factory.sid',0); //simple load & play with implicit object (named 'SIDplayer') creation 
+   playSID('music/Funtempo.sid',0); //simple load & play with implicit object (named 'SIDplayer') creation 
   //examples with manual object-initialization:
    //SIDplayer = new jsSID(16384,0.0005); 
    //load and start playback (more in your face :):
-    //SIDplayer.loadstart('music/Compleeto.sid',0); 
+    //SIDplayer.loadstart('music/Funtempo.sid',0); 
    //or load first, then start on demand (people usually don't like websites automatically creating sound):
-    //SIDplayer.loadinit('music/Compleeto.sid'); //SIDplayer.start(0);
+    //SIDplayer.loadinit('music/Funtempo.sid'); //SIDplayer.start(0);
   setInterval('show_playtime()',1000); SIDplayer.setloadcallback(init_tune); SIDplayer.setstartcallback(show_info);
   function init_tune() { st=0; show_info(); }
   function show_info() { document.getElementById('subtdisp').innerHTML = SIDplayer.getsubtunes();
@@ -52,7 +52,7 @@
 
  Simple way: If you just want to simply play a SID without manually creating and initializing a JS object:<br/>
  (This creates a jsSID object called 'SIDplayer' automatically behind the scene, so you can use its functions.)<br/>
- <button onclick="playSID('music/Chordian.sid',0);st=0;">Simple SID playback</button> <br/>playSID('URL',subtune);
+ <button onclick="playSID('music/Funck_the_Metal.sid',0);st=0;">Simple SID playback</button> <br/>playSID('URL',subtune);
  <br/><br/>
 
  A bit more expert way: If you want to create a SIDplayer object manually before using its functions:<br/>
@@ -63,12 +63,12 @@
  <br/><br/>
 
  Choose file: <input name="Browse" type="file" onchange="SIDplayer.loadstart(window.URL.createObjectURL(this.files[0]),0);"></input> 
- or type local URL: <input id="sidurl" type="url" onchange="SIDplayer.loadstart(this.value,0);" value="music/Compleeto.sid"></input> 
+ or type local URL: <input id="sidurl" type="url" onchange="SIDplayer.loadstart(this.value,0);" value="music/Magyar_Nepzenek.sid"></input> 
  <button onclick="SIDplayer.loadstart(document.getElementById('sidurl').value,0);">go</button> <br/> 
  SIDplayer.loadstart('URL', subtune);
  <br/><br/>
  
- <button onclick="SIDplayer.loadinit('music/Hard_Track.sid',0);">Load</button> <br/> SIDplayer.loadinit('URL', subtune); 
+ <button onclick="SIDplayer.loadinit('music/I_Just_Cant_Stop_Loving_You.sid',0);">Load</button> <br/> SIDplayer.loadinit('URL', subtune); 
  <br/><br/>
 
  <button onclick="SIDplayer.start(st);">Start</button>  

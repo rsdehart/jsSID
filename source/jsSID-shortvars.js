@@ -1,18 +1,20 @@
 
+
 function playSID(sidurl,subtune) { 
  if (typeof SIDplayer === 'undefined') SIDplayer = new jsSID(16384,0.0005); 
  SIDplayer.loadstart(sidurl,subtune);
 }
 
+
 function jsSID (bufln, bgnoi)
 {
+
  this.author='Hermit'; this.sourcecode='http://hermit.sidrip.com'; this.version='0.9.1'; this.year='2016';
  
  if ( typeof AudioContext !== 'undefined') { var aCtx = new AudioContext(); }
  else { var aCtx = new webkitAudioContext(); }
  var smpr = aCtx.sampleRate; 
- if (typeof aCtx.createJavaScriptNode === 'function') 
- { var scrNod = aCtx.createJavaScriptNode(bufln,0,1); }
+ if (typeof aCtx.createJavaScriptNode === 'function') { var scrNod = aCtx.createJavaScriptNode(bufln,0,1); }
  else { var scrNod = aCtx.createScriptProcessor(bufln,0,1); }
  
  scrNod.onaudioprocess = function(e) { 
@@ -83,14 +85,16 @@ function jsSID (bufln, bgnoi)
    else fspd = smpr/FR; 
    if(plf==0) pla = ((M[1]&3)<2)? M[0xFFFE]+M[0xFFFF]*256 : M[0x314]+M[0x315]*256; 
    else { pla=plf; if (pla>=0xE000 && M[1]==0x37) M[1]=0x35; } 
-   initCPU(pla); fcnt=1; fin=0; CPUtime=0; playtime=0; ended=0; ind=1;  }
+   initCPU(pla); fcnt=1; fin=0; CPUtime=0; playtime=0; ended=0; ind=1;  
+  }
  }
  
  function play() { 
   if (ldd && ind) { fcnt--; playtime+=1/smpr;
    if (fcnt<=0) { fcnt=fspd; fin=0; PC=pla; SP=0xFF; }
    if (fin==0) {
-    while(CPUtime<=ckr) { pPC=PC;
+    while(CPUtime<=ckr) { 
+	 pPC=PC;
      if (CPU()>=0xFE) { fin=1; break; }  else CPUtime+=cyc;
      if ( (M[1]&3)>1 && pPC<0xE000 && (PC==0xEA31 || PC==0xEA81)) { fin=1; break; } 
      if ( (addr==0xDC05 || addr==0xDC04) && (M[1]&3) && tmod[subtune] ) fspd = (M[0xDC04] + M[0xDC05]*256) / ckr; 
@@ -98,10 +102,14 @@ function jsSID (bufln, bgnoi)
       if ( !(SID_address[1]<=sta && sta<SID_address[1]+0x1F) && !(SID_address[2]<=sta && sta<SID_address[2]+0x1F) )
        M[sta&0xD41F]=M[sta]; }
      if(addr==0xD404 && !(M[0xD404]&1)) Ast[0]&=0x3E; if(addr==0xD40B && !(M[0xD40B]&1)) Ast[1]&=0x3E; if(addr==0xD412 && !(M[0xD412]&1)) Ast[2]&=0x3E; 
-    }  CPUtime-=ckr;
-  }} 
+    }  
+    CPUtime-=ckr;
+   }
+  } 
+
   if (playlength>0 && parseInt(playtime)==parseInt(playlength) && endcallback!==null && ended==0) {ended=1; endcallback();}
   mix = SID(0,0xD400); if (SID_address[1]) mix += SID(1,SID_address[1]); if(SID_address[2]) mix += SID(2,SID_address[2]);
+  
   return mix * volume * SIDamount_vol[SIDamount] + (Math.random()*bgnoi-bgnoi/2); 
  }
  
@@ -114,6 +122,7 @@ function jsSID (bufln, bgnoi)
  function CPU () 
  {
   IR=M[PC]; cyc=2; sta=0; 
+  
   if(IR&1) {  
    switch (IR&0x1F) { 
     case 1: case 3: addr = M[M[++PC]+X] + M[M[PC]+X+1]*256; cyc=6; break; 
@@ -124,7 +133,9 @@ function jsSID (bufln, bgnoi)
     case 0x15: addr = M[++PC] + X; cyc=4; break; 
     case 5: case 7: addr = M[++PC]; cyc=3; break; 
     case 0x17: addr = M[++PC] + Y; cyc=4; break; 
-    case 9: case 0xB: addr = ++PC; cyc=2;  }  addr&=0xFFFF;  
+    case 9: case 0xB: addr = ++PC; cyc=2;  
+   }
+   addr&=0xFFFF;
    switch (IR&0xE0) {
     case 0x60: T=A; A+=M[addr]+(ST&1); ST&=20; ST|=(A&128)|(A>255); A&=0xFF; ST|=(!A)<<1 | (!((T^M[addr])&0x80) && ((T^A)&0x80))>>1; break; 
     case 0xE0: T=A; A-=M[addr]+!(ST&1); ST&=20; ST|=(A&128)|(A>=0); A&=0xFF; ST|=(!A)<<1 | (((T^M[addr])&0x80) && ((T^A)&0x80))>>1; break; 
@@ -133,14 +144,19 @@ function jsSID (bufln, bgnoi)
     case 0x20: A&=M[addr]; ST&=125;ST|=(!A)<<1|(A&128); break; 
     case 0x40: A^=M[addr]; ST&=125;ST|=(!A)<<1|(A&128); break; 
     case 0xA0: A=M[addr]; ST&=125;ST|=(!A)<<1|(A&128); if((IR&3)==3) X=A; break; 
-    case 0x80: M[addr]=A & (((IR&3)==3)?X:0xFF); sta=addr;  } }  
+    case 0x80: M[addr]=A & (((IR&3)==3)?X:0xFF); sta=addr;   
+   }
+  }
+  
   else if(IR&2) {  
    switch (IR&0x1F) { 
     case 0x1E: addr = M[++PC] + M[++PC]*256 + ( ((IR&0xC0)!=0x80) ? X:Y ); cyc=5; break; 
     case 0xE: addr = M[++PC] + M[++PC]*256; cyc=4; break; 
     case 0x16: addr = M[++PC] + ( ((IR&0xC0)!=0x80) ? X:Y ); cyc=4; break; 
     case 6: addr = M[++PC]; cyc=3; break; 
-    case 2: addr = ++PC; cyc=2;  }  addr&=0xFFFF;  
+    case 2: addr = ++PC; cyc=2;  
+   }  
+   addr&=0xFFFF; 
    switch (IR&0xE0) {
     case 0x00: ST&=0xFE; case 0x20: if((IR&0xF)==0xA) { A=(A<<1)+(ST&1); ST&=60;ST|=(A&128)|(A>255); A&=0xFF; ST|=(!A)<<1; } 
       else { T=(M[addr]<<1)+(ST&1); ST&=60;ST|=(T&128)|(T>255); T&=0xFF; ST|=(!T)<<1; M[addr]=T; cyc+=2; }  break; 
@@ -150,7 +166,10 @@ function jsSID (bufln, bgnoi)
       else {X--; X&=0xFF; ST&=125;ST|=(!X)<<1|(X&128);}  break; 
     case 0xA0: if((IR&0xF)!=0xA) X=M[addr];  else if(IR&0x10) {X=SP;break;}  else X=A;  ST&=125;ST|=(!X)<<1|(X&128);  break; 
     case 0x80: if(IR&4) {M[addr]=X;sta=addr;}  else if(IR&0x10) SP=X;  else {A=X; ST&=125;ST|=(!A)<<1|(A&128);}  break; 
-    case 0xE0: if(IR&4) { M[addr]++; M[addr]&=0xFF; ST&=125;ST|=(!M[addr])<<1|(M[addr]&128); cyc+=2; }  } } 
+    case 0xE0: if(IR&4) { M[addr]++; M[addr]&=0xFF; ST&=125;ST|=(!M[addr])<<1|(M[addr]&128); cyc+=2; } 
+   }
+  }
+  
   else if((IR&0xC)==8) {  
    switch (IR&0xF0) {
     case 0x60: SP++; SP&=0xFF; A=M[0x100+SP]; ST&=125;ST|=(!A)<<1|(A&128); cyc=4; break; 
@@ -162,7 +181,10 @@ function jsSID (bufln, bgnoi)
     case 0x40: M[0x100+SP]=A; SP--; SP&=0xFF; cyc=3; break; 
     case 0x90: A=Y; ST&=125;ST|=(!A)<<1|(A&128); break; 
     case 0xA0: Y=A; ST&=125;ST|=(!Y)<<1|(Y&128); break; 
-    default: if(flagsw[IR>>5]&0x20) ST|=(flagsw[IR>>5]&0xDF); else ST&=255-(flagsw[IR>>5]&0xDF);  } } 
+    default: if(flagsw[IR>>5]&0x20) ST|=(flagsw[IR>>5]&0xDF); else ST&=255-(flagsw[IR>>5]&0xDF);  
+   }
+  }
+  
   else {  
    if ((IR&0x1F)==0x10) { PC++; T=M[PC]; if(T&0x80) T-=0x100; 
     if(IR&0x20) {if (ST&brf[IR>>6]) {PC+=T;cyc=3;}} else {if (!(ST&brf[IR>>6])) {PC+=T;cyc=3;}}  } 
@@ -172,7 +194,9 @@ function jsSID (bufln, bgnoi)
      case 0x1C: addr = M[++PC] + M[++PC]*256 + X; cyc=5; break; 
      case 0xC: addr = M[++PC] + M[++PC]*256; cyc=4; break; 
      case 0x14: addr = M[++PC] + X; cyc=4; break; 
-     case 4: addr = M[++PC]; cyc=3;  }  addr&=0xFFFF;  
+     case 4: addr = M[++PC]; cyc=3;  
+    }  
+    addr&=0xFFFF;  
     switch (IR&0xE0) {
      case 0x00: M[0x100+SP]=PC%256; SP--;SP&=0xFF; M[0x100+SP]=PC/256;  SP--;SP&=0xFF; M[0x100+SP]=ST; SP--;SP&=0xFF; 
        PC = M[0xFFFE]+M[0xFFFF]*256-1; cyc=7; break; 
@@ -185,7 +209,11 @@ function jsSID (bufln, bgnoi)
      case 0xC0: T=Y-M[addr]; ST&=124;ST|=(!(T&0xFF))<<1|(T&128)|(T>=0); break; 
      case 0xE0: T=X-M[addr]; ST&=124;ST|=(!(T&0xFF))<<1|(T&128)|(T>=0); break; 
      case 0xA0: Y=M[addr]; ST&=125;ST|=(!Y)<<1|(Y&128); break; 
-     case 0x80: M[addr]=Y; sta=addr;  }  }  }  
+     case 0x80: M[addr]=Y; sta=addr;  
+    }
+   }
+  }
+  
   PC++; PC&=0xFFFF; return 0; 
  } 
  
@@ -200,73 +228,104 @@ function jsSID (bufln, bgnoi)
  var prevwfout = [0,0,0,0,0,0,0,0,0], pwv = [0,0,0,0,0,0,0,0,0], combiwf;
  var plp=[0,0,0], pbp=[0,0,0], ctfr = -2*3.14*(12500/256)/smpr, ctf_ratio_6581 = -2*3.14*(20000/256)/smpr;
  var pgt, chnadd, ctrl, wf, test, prd, step, SR, aAdd, MSB, tmp, pw, lim, wfout, ctf, reso, flin, output;
+
  function initSID() { for(var i=0xD400;i<=0xD7FF;i++) M[i]=0; for(var i=0xDE00;i<=0xDFFF;i++) M[i]=0;
-  for(var i=0;i<9;i++) {Ast[i]=HZ; rcnt[i]=envcnt[i]=expcnt[i]=pSR[i]=0;} }
+  for(var i=0;i<9;i++) {Ast[i]=HZ; rcnt[i]=envcnt[i]=expcnt[i]=pSR[i]=0;} 
+ }
+
  
  function SID (num,SIDaddr) 
  {  
   flin=0; output=0;
+   
   for (var chn = num*CHA;  chn < (num+1)*CHA;  chn++) 
   {
-   pgt=(Ast[chn]&GAT); chnadd=SIDaddr+(chn-num*CHA)*7, ctrl=M[chnadd+4]; wf=ctrl&0xF0; test=ctrl&TST; SR=M[chnadd+6]; tmp=0;
+   pgt=(Ast[chn]&GAT); chnadd=SIDaddr+(chn-num*CHA)*7; 
+   ctrl=M[chnadd+4]; wf=ctrl&0xF0; test=ctrl&TST; SR=M[chnadd+6]; tmp=0;
+   
    if ( pgt != (ctrl&GAT) ) { 
     if (pgt) { Ast[chn] &= 0xFF-(GAT|ATK|DECSUS); } 
     else { Ast[chn] = (GAT|ATK|DECSUS); 
-     if ( (SR&0xF) > (pSR[chn]&0xF) ) tmp=1; } }  pSR[chn]=SR; 
+     if ( (SR&0xF) > (pSR[chn]&0xF) ) tmp=1; 
+    } 
+   }  
+   pSR[chn]=SR; 
+   
    rcnt[chn] += ckr; if (rcnt[chn] >= 0x8000) rcnt[chn] -= 0x8000; 
+   
    if (Ast[chn]&ATK) { step = M[chnadd+5]>>4; prd = Aprd[step]; }
    else if (Ast[chn]&DECSUS) { step = M[chnadd+5]&0xF; prd = Aprd[step]; }
-   else { step = SR&0xF; prd = Aprd[step]; }     step=Astp[step]; 
+   else { step = SR&0xF; prd = Aprd[step]; }     
+   step=Astp[step]; 
+   
    if (rcnt[chn] >= prd && rcnt[chn] < prd+ckr && tmp==0) { 
     rcnt[chn] -= prd;  
     if ( (Ast[chn]&ATK)  ||  ++expcnt[chn] == Aexp[ envcnt[chn] ] ) {
      if ( !(Ast[chn]&HZ) ) {
       if (Ast[chn]&ATK) { envcnt[chn]+=step; if (envcnt[chn]>=0xFF) { envcnt[chn]=0xFF; Ast[chn] &= 0xFF-ATK; } }
       else if ( !(Ast[chn]&DECSUS)  ||  envcnt[chn] > (SR>>4)+(SR&0xF0) )
-      { envcnt[chn]-=step; if (envcnt[chn]<=0 && envcnt[chn]+step!=0) { envcnt[chn]=0; Ast[chn] |= HZ; } }  }
-     expcnt[chn] = 0;  }  }
+      { envcnt[chn]-=step; if (envcnt[chn]<=0 && envcnt[chn]+step!=0) { envcnt[chn]=0; Ast[chn] |= HZ; } }  
+     }
+     expcnt[chn] = 0;  
+    }
+   }
+   
    envcnt[chn]&=0xFF; 
+   
    aAdd=(M[chnadd]+M[chnadd+1]*256)*ckr; 
    if (  test  ||  ( (ctrl&SYN) && sMSBrise[num] )  ) { pacc[chn]=0; }
    else { pacc[chn] += aAdd; if (pacc[chn]>0xFFFFFF) pacc[chn] -= 0x1000000; } 
    MSB = pacc[chn]&0x800000; sMSBrise[num] = ( MSB > (pracc[chn]&0x800000))?1:0; 
+   
    if (wf&NOI) { tmp=nLFSR[chn];
     if (((pacc[chn]&0x100000) != (pracc[chn]&0x100000)) || aAdd>=0x100000) { 
      step=(tmp&0x400000)^((tmp&0x20000)<<5) ; tmp = ((tmp<<1)+(step>0||test)) & 0x7FFFFF; nLFSR[chn]=tmp; }   
-    wfout = (wf&0x70)?0: ((tmp&0x100000)>>5)+((tmp&0x40000)>>4)+((tmp&0x4000)>>1)+((tmp&0x800)<<1)+((tmp&0x200)<<2)+((tmp&0x20)<<5)+((tmp&0x04)<<7)+((tmp&0x01)<<8); }
+    wfout = (wf&0x70)?0: ((tmp&0x100000)>>5)+((tmp&0x40000)>>4)+((tmp&0x4000)>>1)+((tmp&0x800)<<1)+((tmp&0x200)<<2)+((tmp&0x20)<<5)+((tmp&0x04)<<7)+((tmp&0x01)<<8); 
+   }
    else if (wf&PUL) { 
     pw=(M[chnadd+2]+(M[chnadd+3]&0xF)*256)*16; tmp=aAdd>>9; if (0<pw && pw<tmp) pw=tmp; tmp^=0xFFFF; if(pw>tmp) pw=tmp; tmp=pacc[chn]>>8;
     if (wf==PUL) { step=256/(aAdd>>16); 
      if (test) wfout=0xFFFF;
      else if (tmp < pw) { lim = (0xFFFF-pw)*step; if (lim>0xFFFF) lim=0xFFFF; wfout = lim - (pw-tmp)*step; if (wfout<0) wfout=0; } 
-     else { lim = pw*step; if (lim>0xFFFF) lim=0xFFFF; wfout = (0xFFFF-tmp)*step - lim; if (wfout>=0) wfout=0xFFFF; wfout&=0xFFFF; }  } 
+     else { lim = pw*step; if (lim>0xFFFF) lim=0xFFFF; wfout = (0xFFFF-tmp)*step - lim; if (wfout>=0) wfout=0xFFFF; wfout&=0xFFFF; }  
+    }
     else { 
      wfout = (tmp >= pw || test) ? 0xFFFF:0; 
      if (wf&TRI) { 
       if (wf&SAW) { wfout = (wfout)? cmbWF(chn,Pulsetrsaw,tmp>>4,1) : 0; } 
       else { tmp=pacc[chn]^(ctrl&RNG?sMSB[num]:0); wfout = (wfout)? cmbWF(chn,pusaw,(tmp^(tmp&0x800000?0xFFFFFF:0))>>11,0) : 0; } } 
-     else if (wf&SAW) wfout = (wfout)? cmbWF(chn,pusaw,tmp>>4,1) : 0;  }  } 
+     else if (wf&SAW) wfout = (wfout)? cmbWF(chn,pusaw,tmp>>4,1) : 0; 
+    }
+   }
    else if (wf&SAW) { wfout=pacc[chn]>>8; 
     if (wf&TRI) wfout = cmbWF(chn,trsaw,wfout>>4,1); 
-    else { step=aAdd/0x1200000; wfout += wfout*step; if (wfout>0xFFFF) wfout = 0xFFFF-(wfout-0x10000)/step; }  } 
+    else { step=aAdd/0x1200000; wfout += wfout*step; if (wfout>0xFFFF) wfout = 0xFFFF-(wfout-0x10000)/step; }  
+   }
    else if (wf&TRI) { tmp=pacc[chn]^(ctrl&RNG?sMSB[num]:0); wfout = (tmp^(tmp&0x800000?0xFFFFFF:0)) >> 7; }
+
    if (wf) prevwfout[chn] = wfout; else { wfout = prevwfout[chn]; } 
    pracc[chn] = pacc[chn]; sMSB[num] = MSB;
+
    if (M[SIDaddr+0x17]&FSW[chn]) flin += (wfout-0x8000)*(envcnt[chn]/256); 
    else if ((chn%CHA)!=2 || !(M[SIDaddr+0x18]&OFF3)) output += (wfout-0x8000)*(envcnt[chn]/256);  
   }
+  
   if(M[1]&3) M[SIDaddr+0x1B]=wfout>>8; M[SIDaddr+0x1C]=envcnt[3]; 
+  
   ctf = (M[SIDaddr+0x15]&7)/8 + M[SIDaddr+0x16] + 0.2; 
   if (SIDm==8580.0) { ctf = 1-Math.exp(ctf*ctfr); reso = Math.pow( 2, ( (4-(M[SIDaddr+0x17]>>4) ) / 8) ); }
   else { if (ctf<24) ctf=0.035; else ctf = 1-1.263*Math.exp(ctf*ctf_ratio_6581); reso = (M[SIDaddr+0x17]>0x5F)? 8/(M[SIDaddr+0x17]>>4) : 1.41; }
   tmp = flin + pbp[num]*reso + plp[num]; if (M[SIDaddr+0x18]&HP) output-=tmp;
   tmp = pbp[num] - tmp*ctf; pbp[num]=tmp;  if (M[SIDaddr+0x18]&BP) output-=tmp;
   tmp = plp[num] + tmp*ctf; plp[num]=tmp;  if (M[SIDaddr+0x18]&LP) output+=tmp;   
+  
   return (output/SCALE)*(M[SIDaddr+0x18]&0xF); 
  }
 
- function cmbWF(chn,wfa,index,differ6581) 
- { if(differ6581 && SIDm==6581.0) index&=0x7FF; combiwf = (wfa[index]+pwv[chn])/2; pwv[chn]=wfa[index]; return combiwf; }
+
+ function cmbWF(chn,wfa,index,differ6581) { 
+  if(differ6581 && SIDm==6581.0) index&=0x7FF; combiwf = (wfa[index]+pwv[chn])/2; pwv[chn]=wfa[index]; return combiwf; 
+ }
  
  function cCmbWF(wfa,bitmul,bstr,trh) { 
   for (var i=0; i<4096; i++) { wfa[i]=0; 
@@ -275,6 +334,7 @@ function jsSID (bufln, bgnoi)
     wfa[i] += (blvl>=trh)? Math.pow(2,j) : 0;  }
    wfa[i]*=12;  }
  }
+
  trsaw = new Array(4096);  cCmbWF(trsaw,0.8,2.4,0.64); 
  pusaw = new Array(4096);  cCmbWF(pusaw,1.4,1.9,0.68);
  Pulsetrsaw = new Array(4096); cCmbWF(Pulsetrsaw,0.8,2.5,0.64); 
@@ -282,8 +342,9 @@ function jsSID (bufln, bgnoi)
  var prd0 = Math.max(ckr,9);
  var Aprd = [prd0,32*1,63*1,95*1,149*1,220*1,267*1,313*1,392*1,977*1,1954*1,3126*1,3907*1,11720*1,19532*1,31251*1];
  var Astp = [Math.ceil(prd0/9),1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
+
  var Aexp = [ 1,30,30,30,30,30,30,16,16,16,16,16,16,16,16,8,8,8,8,8,8,8,8,8,8,8,8,4,4,4,4,4, 
-  4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1, 
+  4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1, 
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
