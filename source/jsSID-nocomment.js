@@ -85,7 +85,7 @@ function jsSID (bufferlen, background_noise)
  var loadaddr=0x1000, initaddr=0x1000, playaddf=0x1003, playaddr=0x1003, subtune = 0, subtune_amount=1, playlength=0; 
  var preferred_SID_model=[8580.0,8580.0,8580.0]; var SID_model=8580.0; var SID_address=[0xD400,0,0];
  var memory = new Uint8Array(65536); 
- var loaded=0, initialized=0, finished=0, loadcallback=null, startcallback=null; endcallback=null, playtime=0, ended=0;
+ var loaded=0, initialized=0, finished=0, loadcallback=null, startcallback=null, endcallback=null, playtime=0, ended=0;
  var clk_ratio = C64_PAL_CPUCLK/samplerate;
  var frame_sampleperiod = samplerate/PAL_FRAMERATE; 
  var framecnt=1, volume=1.0, CPUtime=0, pPC;

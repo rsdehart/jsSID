@@ -77,7 +77,7 @@ function jsSID (bufln, bgnoi)
  var ldad=0x1000, ina=0x1000, plf=0x1003, pla=0x1003, subtune = 0, subtune_amount=1, playlength=0; 
  var prSIDm=[8580.0,8580.0,8580.0]; var SIDm=8580.0; var SID_address=[0xD400,0,0];
  var M = new Uint8Array(65536); 
- var ldd=0, ind=0, fin=0, loadcallback=null, startcallback=null; endcallback=null, playtime=0, ended=0;
+ var ldd=0, ind=0, fin=0, loadcallback=null, startcallback=null, endcallback=null, playtime=0, ended=0;
  var ckr = CLK/smpr;
  var fspd = smpr/FR; 
  var fcnt=1, volume=1.0, CPUtime=0, pPC;
